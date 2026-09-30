@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
+<title>LabelScan Pro</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#020617">
+<meta name="apple-mobile-web-app-title" content="LabelScan">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap">
+<style>
+html,body{min-height:100%;margin:0;background:#020617;color:#f1f5f9;font-family:Inter,system-ui,-apple-system,sans-serif}
+body{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@keyframes laser{0%,100%{top:4%}50%{top:92%}}.laser{animation:laser 2.2s ease-in-out infinite}
+.hid{display:none!important}input{user-select:text}
+@media(min-width:1024px){#secScan,#secList{display:block!important}}
+.inp{width:100%;background:#020617;border:1px solid #1e293b;border-radius:.75rem;padding:.7rem .9rem;font-size:.875rem;color:#f1f5f9}
+.inp:focus{outline:none;border-color:#6366f1}
+</style>
+</head>
+<body>
+
+<!-- LOGIN / REGISTRAZIONE -->
+<div id="vAuth" class="hid min-h-screen flex items-center justify-center p-6"><div class="w-full max-w-sm space-y-3">
+  <div class="text-center text-5xl">🏷️</div>
+  <h1 class="text-xl font-extrabold text-center">LabelScan <span class="text-xs px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300">PRO</span></h1>
+  <p class="text-xs text-slate-400 text-center">Accedi o registrati: ogni account ha il suo spazio personale.</p>
+  <input id="em" type="email" class="inp" placeholder="Email" autocomplete="email">
+  <input id="pw" type="password" class="inp" placeholder="Password (min. 6 caratteri)" autocomplete="current-password">
+  <div class="grid grid-cols-2 gap-2"><button onclick="doAuth('in')" class="py-3 rounded-xl bg-indigo-600 font-bold text-sm">Accedi</button>
+  <button onclick="doAuth('up')" class="py-3 rounded-xl bg-slate-800 border border-slate-700 font-bold text-sm">Registrati</button></div>
+  <div id="oauth" class="hid space-y-2">
+    <div class="flex items-center gap-2 text-[11px] text-slate-500"><span class="flex-1 h-px bg-slate-800"></span>oppure<span class="flex-1 h-px bg-slate-800"></span></div>
+    <button id="oGoogle" onclick="oauth('google')" class="hid w-full py-3 rounded-xl bg-white text-slate-900 font-bold text-sm flex items-center justify-center gap-2">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z"/><path fill="#FBBC05" d="M10.5 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7l-7.9-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.9 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>Continua con Google</button>
+    <button id="oApple" onclick="oauth('apple')" class="hid w-full py-3 rounded-xl bg-black border border-slate-700 text-white font-bold text-sm flex items-center justify-center gap-2">
+      <svg width="16" height="18" viewBox="0 0 384 512" fill="currentColor"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>Continua con Apple</button>
+  </div>
+  <p id="amsg" class="text-xs text-amber-300 text-center min-h-[1rem]"></p>
+</div></div>
+
+<!-- DASHBOARD PROGETTI -->
+<div id="vDash" class="hid min-h-screen">
+  <header class="px-4 py-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
+    <div class="font-extrabold">🏷️ LabelScan <span class="text-[10px] text-indigo-300">PRO</span></div>
+    <div class="flex items-center gap-3 text-xs text-slate-400"><span id="who" class="hidden sm:inline"></span><button onclick="logout()" class="px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 font-bold text-slate-200">Esci</button></div>
+  </header>
+  <main class="max-w-6xl mx-auto p-4 space-y-4">
+    <h2 class="text-2xl font-extrabold">I tuoi progetti</h2>
+    <div class="flex gap-2 max-w-md"><input id="pname" class="inp" placeholder="Nome nuovo progetto (es. Cantiere Rossi)" onkeydown="if(event.key==='Enter')newProj()"><button onclick="newProj()" class="px-4 rounded-xl bg-emerald-600 font-bold text-sm whitespace-nowrap">+ Crea</button></div>
+    <div id="pgrid" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"></div>
+  </main>
+</div>
+
+<!-- PROGETTO -->
+<div id="vProj" class="hid min-h-screen">
+  <header class="px-4 py-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between gap-2">
+    <button onclick="backDash()" class="px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs font-bold">← Progetti</button>
+    <h1 id="ptitle" class="font-extrabold truncate flex-1 text-center"></h1>
+    <button onclick="openSet()" class="px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs font-bold">⚙️ IA</button>
+  </header>
+  <div class="lg:hidden grid grid-cols-2 gap-2 p-3 pb-0">
+    <button id="tabScan" onclick="tab('scan')" class="py-2.5 rounded-xl text-xs font-bold bg-indigo-600">📷 Scanner</button>
+    <button id="tabList" onclick="tab('list')" class="py-2.5 rounded-xl text-xs font-bold bg-slate-800 text-slate-400">📋 Elenco <span id="badge" class="ml-1 px-2 py-0.5 rounded-full bg-indigo-500 text-white text-[10px]">0</span></button>
+  </div>
+  <main class="max-w-7xl mx-auto p-3 lg:grid lg:grid-cols-[380px_1fr] lg:gap-4 items-start">
+    <section id="secScan" class="space-y-3 lg:sticky lg:top-3">
+      <div class="relative h-[55vh] lg:h-[460px] rounded-3xl overflow-hidden bg-black border border-slate-800 flex items-center justify-center">
+        <video id="video" class="w-full h-full object-cover hid" playsinline muted></video>
+        <div id="vf" class="absolute inset-0 hid pointer-events-none flex items-center justify-center"><div class="w-[80%] aspect-[4/3] border-2 border-indigo-400 rounded-2xl relative" style="box-shadow:0 0 0 9999px rgba(2,6,23,.75)"><div class="absolute w-full h-1 laser bg-gradient-to-r from-transparent via-cyan-400 to-transparent"></div></div></div>
+        <div id="camOff" class="text-center p-6 space-y-3"><div class="text-4xl">📷</div><p class="text-xs text-slate-400">Avvia la fotocamera oppure carica una foto dell'etichetta.</p>
+          <button onclick="startCam()" class="px-5 py-3 rounded-2xl bg-indigo-600 text-xs font-bold">Avvia fotocamera</button></div>
+        <div id="busy" class="absolute inset-0 hid bg-slate-950/90 flex flex-col items-center justify-center gap-2 text-center"><div class="w-12 h-12 rounded-full border-4 border-indigo-500/20 border-t-indigo-500 animate-spin"></div><p id="busyTxt" class="text-sm font-bold">Lettura in corso…</p></div>
+        <canvas id="cv" class="hid"></canvas>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <button id="snap" onclick="snap()" disabled class="py-3.5 rounded-2xl bg-indigo-600 text-xs font-bold disabled:opacity-40 disabled:bg-slate-800">Scatta e analizza</button>
+        <label class="py-3.5 rounded-2xl bg-slate-900 border border-slate-800 text-xs font-bold text-center cursor-pointer">Foto / File<input type="file" accept="image/*" capture="environment" class="hid" onchange="pickPhoto(event)"></label>
+      </div>
+      <button onclick="openModal({},'')" class="w-full py-3 rounded-2xl bg-slate-900 border border-slate-800 text-xs font-bold">✍️ Inserisci a mano</button>
+    </section>
+    <section id="secList" class="hid space-y-2 mt-3 lg:mt-0">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-wrap items-center justify-between gap-2">
+        <div><span id="total" class="text-2xl font-black">0</span> <span class="text-xs text-slate-400">elementi</span></div>
+        <div class="flex gap-2"><label class="px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs font-bold cursor-pointer">⬆️ Carica Excel<input type="file" accept=".xlsx,.xls,.csv" class="hid" onchange="importFile(event)"></label>
+        <button onclick="exportXlsx()" class="px-3 py-2.5 rounded-xl bg-emerald-600 text-xs font-bold">⬇️ Excel</button></div>
+      </div>
+      <input id="q" oninput="render()" class="inp" placeholder="🔍 Cerca per modello, seriale, marca, P/N, IMEI…">
+      <div class="hidden md:grid grid-cols-[1.2fr_1.4fr_1fr_1fr_1fr_auto] gap-3 px-3 text-[10px] uppercase tracking-wider font-extrabold text-slate-500"><span>Modello</span><span>Seriale</span><span>Marca</span><span>P/N</span><span>IMEI</span><span class="w-16"></span></div>
+      <div id="list" class="space-y-2"></div>
+    </section>
+  </main>
+</div>
+
+<!-- MODALE CONFERMA -->
+<div id="modal" class="fixed inset-0 z-40 hid bg-slate-950/80 flex items-end justify-center">
+  <div class="bg-slate-900 border-t border-slate-800 w-full max-w-md rounded-t-3xl max-h-[90%] overflow-y-auto p-5 space-y-3">
+    <div class="flex items-center justify-between"><h2 class="font-bold">Verifica dati</h2><button onclick="closeModal()" class="text-slate-400 px-2">✕</button></div>
+    <img id="thumb" class="w-full h-24 object-contain bg-black rounded-xl hid">
+    <div id="dupWarn" class="hid text-xs rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 p-2"></div>
+    <label class="block text-xs font-bold">Modello *<input id="fModel" oninput="checkDup()" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm font-mono font-bold focus:outline-none focus:border-indigo-500"></label>
+    <label class="block text-xs font-bold">Numero di serie (S/N) *<input id="fSerial" oninput="checkDup()" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm font-mono font-bold text-emerald-400 focus:outline-none focus:border-indigo-500"></label>
+    <label class="block text-xs text-slate-400">Marca<input id="fBrand" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"></label>
+    <div class="grid grid-cols-2 gap-2">
+      <label class="block text-xs text-slate-400">P/N<input id="fPN" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-indigo-500"></label>
+      <label class="block text-xs text-slate-400">IMEI<input id="fIMEI" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-indigo-500"></label>
+    </div>
+    <div class="flex gap-2 pt-1">
+      <button onclick="closeModal()" class="flex-1 py-3 rounded-xl bg-slate-800 text-xs font-bold">Annulla</button>
+      <button onclick="addItem()" class="flex-[2] py-3 rounded-xl bg-emerald-600 text-xs font-extrabold">✔ OK, aggiungi</button>
+    </div>
+  </div>
+</div>
+
+<div id="setModal" class="fixed inset-0 z-40 hid bg-slate-950/85 flex items-center justify-center p-5">
+  <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 w-full max-w-xs space-y-3">
+    <h2 class="font-bold text-center">IA opzionale (Gemini)</h2>
+    <p class="text-xs text-slate-400">Facoltativo: la lettura funziona anche senza. Con una chiave gratuita di Google AI Studio l'IA migliora la precisione (aistudio.google.com/apikey). Resta salvata solo su questo dispositivo.</p>
+    <input id="apiKey" type="password" placeholder="Chiave API" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs font-mono">
+    <input id="apiModel" placeholder="Modello" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-[11px] font-mono">
+    <div class="flex gap-2"><button onclick="$('setModal').classList.add('hid')" class="flex-1 py-2.5 rounded-xl bg-slate-800 text-xs font-bold">Chiudi</button>
+    <button onclick="saveSet()" class="flex-1 py-2.5 rounded-xl bg-indigo-600 text-xs font-bold">Salva</button></div>
+  </div>
+</div>
+
+<div id="toast" class="fixed left-1/2 -translate-x-1/2 z-50 bg-slate-800 border border-slate-700 px-4 py-2 rounded-full text-xs font-semibold opacity-0 pointer-events-none transition-opacity max-w-[90vw] truncate" style="top:calc(env(safe-area-inset-top,0px) + 64px)"></div>
+
+<script src="config.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const LS='ls_';
+let sb,me,projects=[],proj=null,items=[],editId=null,chan=null,stream=null,facing='environment',armed=null,rt=null;
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function toast(m,t){const e=$('toast');e.textContent=(t==='warn'?'⚠️ ':'✅ ')+m;e.style.opacity=1;clearTimeout(e._t);e._t=setTimeout(()=>e.style.opacity=0,3200)}
+function show(v){['vAuth','vDash','vProj'].forEach(x=>$(x).classList.toggle('hid',x!==v))}
+function getKey(){return localStorage.getItem('ls_key')||''}
+function getModel(){return localStorage.getItem('ls_model')||'gemini-flash-latest'}
+function openSet(){$('apiKey').value=getKey();$('apiModel').value=getModel();$('setModal').classList.remove('hid')}
+function saveSet(){localStorage.setItem('ls_key',$('apiKey').value.trim());localStorage.setItem('ls_model',$('apiModel').value.trim()||'gemini-flash-latest');$('setModal').classList.add('hid');toast('Impostazioni salvate')}
+
+// ---------- Avvio e account ----------
+function init(){
+  const u=window.SB_URL,k=window.SB_KEY;
+  if(!u||!k){show('vAuth');$('amsg').textContent='App non ancora configurata (manca config.js).';return}
+  sb=supabase.createClient(u,k);
+  const op=window.SB_OAUTH||[];
+  if(op.includes('google'))$('oGoogle').classList.remove('hid');
+  if(op.includes('apple'))$('oApple').classList.remove('hid');
+  if(op.length)$('oauth').classList.remove('hid');
+  sb.auth.onAuthStateChange((_e,s)=>{me=s?s.user:null;if(me){$('who').textContent=me.email;setTimeout(loadProjects,0)}else show('vAuth')});
+}
+async function doAuth(mode){
+  const email=$('em').value.trim(),password=$('pw').value,m=$('amsg');m.textContent='';
+  if(!email||password.length<6){m.textContent='Inserisci email e password (almeno 6 caratteri).';return}
+  const r=mode==='in'?await sb.auth.signInWithPassword({email,password}):await sb.auth.signUp({email,password});
+  if(r.error){m.textContent=r.error.message;return}
+  if(mode==='up'&&!r.data.session)m.textContent='Registrato! Controlla la mail per confermare, poi accedi.';
+}
+async function oauth(provider){
+  const {error}=await sb.auth.signInWithOAuth({provider,options:{redirectTo:location.origin+location.pathname}});
+  if(error)$('amsg').textContent=error.message;
+}
+async function logout(){stopCam();await sb.auth.signOut()}
+
+// ---------- Dashboard progetti ----------
+async function loadProjects(){
+  const {data,error}=await sb.from('projects').select('id,name,created_at,items(count)').order('created_at',{ascending:false});
+  if(error){toast('Database non pronto: '+error.message,'warn');show('vDash');return}
+  projects=data||[];show('vDash');
+  $('pgrid').innerHTML=projects.length?projects.map(p=>`<div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col gap-3">
+    <div><div class="font-bold text-lg truncate">${esc(p.name)}</div><div class="text-xs text-slate-400">${p.items&&p.items[0]?p.items[0].count:0} elementi · ${new Date(p.created_at).toLocaleDateString('it-IT')}</div></div>
+    <div class="flex gap-2"><button onclick="openProj('${p.id}')" class="flex-1 py-2.5 rounded-xl bg-indigo-600 text-xs font-bold">Apri</button>
+    <button id="dp${p.id}" onclick="delProj('${p.id}')" class="px-3 rounded-xl bg-slate-800 border border-slate-700 text-xs">🗑️</button></div></div>`).join('')
+    :'<p class="text-sm text-slate-500">Nessun progetto. Creane uno qui sopra per iniziare.</p>';
+}
+async function newProj(){
+  const name=$('pname').value.trim();if(!name)return;
+  const {error}=await sb.from('projects').insert({name});
+  if(error){toast(error.message,'warn');return}
+  $('pname').value='';loadProjects();
+}
+async function delProj(id){
+  if(armed!==id){armed=id;$('dp'+id).textContent='Conferma?';setTimeout(()=>{if(armed===id){armed=null;const b=$('dp'+id);if(b)b.textContent='🗑️'}},3000);return}
+  armed=null;const {error}=await sb.from('projects').delete().eq('id',id);
+  if(error)toast(error.message,'warn');loadProjects();
+}
+
+// ---------- Progetto ----------
+async function openProj(id){
+  proj=projects.find(p=>p.id===id);$('ptitle').textContent=proj.name;$('q').value='';items=[];render();
+  show('vProj');tab('scan');await loadItems();
+  chan=sb.channel('items-'+id).on('postgres_changes',{event:'*',schema:'public',table:'items',filter:'project_id=eq.'+id},()=>{clearTimeout(rt);rt=setTimeout(loadItems,400)}).subscribe();
+}
+function backDash(){stopCam();$('video').classList.add('hid');$('vf').classList.add('hid');$('camOff').classList.remove('hid');$('snap').disabled=true;if(chan){sb.removeChannel(chan);chan=null}proj=null;loadProjects()}
+async function loadItems(){
+  if(!proj)return;let all=[],from=0;
+  while(true){
+    const {data,error}=await sb.from('items').select('*').eq('project_id',proj.id).order('created_at',{ascending:false}).range(from,from+999);
+    if(error){toast(error.message,'warn');return}
+    all=all.concat(data);if(data.length<1000)break;from+=1000;
+  }
+  items=all;render();
+}
+function tab(t){
+  $('secScan').classList.toggle('hid',t!=='scan');$('secList').classList.toggle('hid',t==='scan');
+  $('tabScan').className='py-2.5 rounded-xl text-xs font-bold '+(t==='scan'?'bg-indigo-600':'bg-slate-800 text-slate-400');
+  $('tabList').className='py-2.5 rounded-xl text-xs font-bold '+(t==='list'?'bg-indigo-600':'bg-slate-800 text-slate-400');
+}
+function render(){
+  $('total').textContent=items.length;$('badge').textContent=items.length;
+  const q=$('q').value.toLowerCase().trim();
+  const f=q?items.filter(i=>[i.model,i.serial,i.brand,i.pn,i.imei].some(v=>(v||'').toLowerCase().includes(q))):items;
+  $('list').innerHTML=f.length?f.slice(0,500).map(i=>`<div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 grid gap-x-3 gap-y-1 md:grid-cols-[1.2fr_1.4fr_1fr_1fr_1fr_auto] md:items-center text-xs font-mono">
+    <div class="font-bold text-sm truncate">${esc(i.model)}</div><div class="text-emerald-400 font-bold break-all">${esc(i.serial)}</div>
+    <div class="text-slate-300">${esc(i.brand)}</div><div class="text-slate-400">${esc(i.pn)}</div><div class="text-slate-400">${esc(i.imei)}</div>
+    <div class="flex gap-1 md:w-16"><button onclick="editItem('${i.id}')" class="w-9 h-9 rounded-xl hover:bg-slate-800">✏️</button><button id="di${i.id}" onclick="delItem('${i.id}')" class="w-9 h-9 rounded-xl hover:bg-slate-800">🗑️</button></div></div>`).join('')+(f.length>500?'<p class="text-center text-xs text-slate-500 py-2">Mostrati i primi 500: affina la ricerca</p>':'')
+    :`<p class="text-center text-xs text-slate-500 py-10">${items.length?'Nessun risultato':'Nessun elemento. Scansiona o carica un file Excel.'}</p>`;
+}
+async function delItem(id){
+  if(armed!==id){armed=id;$('di'+id).textContent='❓';setTimeout(()=>{if(armed===id){armed=null;const b=$('di'+id);if(b)b.textContent='🗑️'}},3000);return}
+  armed=null;const {error}=await sb.from('items').delete().eq('id',id);
+  if(error)toast(error.message,'warn');else{items=items.filter(i=>i.id!==id);render()}
+}
+
+// ---------- Fotocamera ----------
+async function startCam(){
+  try{
+    if(stream)stopCam();
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:facing},width:{ideal:1280},height:{ideal:720}}});
+    const v=$('video');v.srcObject=stream;await v.play();
+    v.classList.remove('hid');$('vf').classList.remove('hid');$('camOff').classList.add('hid');$('snap').disabled=false;
+  }catch(e){toast('Fotocamera non disponibile: usa "Foto / Galleria"','warn')}
+}
+function stopCam(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}}
+function snap(){
+  const v=$('video'),c=$('cv');if(!v.srcObject)return;
+  c.width=v.videoWidth||1280;c.height=v.videoHeight||720;c.getContext('2d').drawImage(v,0,0,c.width,c.height);
+  const thumb=c.toDataURL('image/jpeg',.4);
+  c.toBlob(b=>analyze(b,thumb),'image/jpeg',.85);
+}
+function pickPhoto(e){
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();r.onload=()=>analyze(f,r.result);r.readAsDataURL(f);e.target.value='';
+}
+
+// ---------- Lettura IA (sample) ----------
+const PROMPT=`Sei un sistema OCR per etichette hardware e barcode. Nell'immagine allegata c'è un'etichetta di un prodotto.
+Estrai: model (Modello/Type), serial_number (S/N / Serial), brand (produttore), imei (se presente), pn (Part Number, se distinto dal modello).
+Rispondi SOLO con un oggetto JSON con esattamente queste chiavi: model, serial_number, brand, imei, pn. Campo assente = "". Non inventare valori illeggibili.`;
+const toB64=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result.split(',')[1]);f.readAsDataURL(b)});
+const BRANDS=['Dahua','Hikvision','Zebra','Dell','HP','Apple','Samsung','Cisco','TP-Link','Ubiquiti','Lenovo','Huawei','Honeywell','Axis','Ezviz','Reolink','Ajax','Epson','Brother','Canon','Asus','Acer','Netgear','MikroTik','Fortinet','Aruba'];
+const loadImg=u=>new Promise((ok,ko)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=ko;i.src=u});
+async function readCodes(url){
+  try{if('BarcodeDetector' in window){const r=await new BarcodeDetector().detect(await loadImg(url));if(r.length)return r.map(x=>x.rawValue)}}catch(e){}
+  try{const r=await new ZXing.BrowserMultiFormatReader().decodeFromImageUrl(url);return [r.getText()]}catch(e){}
+  return [];
+}
+async function readText(url){try{return (await Tesseract.recognize(url,'eng')).data.text||''}catch(e){return ''}}
+function parseLabel(text,codes){
+  const t=text.replace(/[|]/g,'I'),g=re=>{const m=t.match(re);return m?m[1].trim():''};
+  let serial=g(/(?:S\/?N|SERIAL(?:\s*(?:NO|NUMBER|NUM))?\.?)\s*[:#.]?\s*([A-Z0-9][A-Z0-9-]{5,})/i);
+  let model=g(/(?:MODEL(?:\s*(?:NO|NAME))?|TYPE|MOD)\.?\s*[:#.]?\s*([A-Z0-9][A-Z0-9\-\/.]{3,})/i)||g(/\b([A-Z]{2,}[A-Z0-9]*-[A-Z0-9-]{3,})\b/);
+  const pn=g(/(?:P\/?N|PART\s*(?:NO|NUMBER)?)\.?\s*[:#.]?\s*([A-Z0-9][A-Z0-9-]{3,})/i);
+  const imei=g(/IMEI\s*[:#]?\s*(\d{15})/i)||(codes.find(c=>/^\d{15}$/.test(c))||'');
+  if(!serial){serial=codes.filter(c=>c!==imei&&c!==pn).sort((a,b)=>b.length-a.length)[0]||''}
+  const brand=(BRANDS.find(b=>new RegExp('\\b'+b+'\\b','i').test(t))||'');
+  return {model,serial_number:serial,brand,pn,imei};
+}
+async function geminiRead(blob){
+  const body={contents:[{role:'user',parts:[{text:PROMPT},{inlineData:{mimeType:'image/jpeg',data:await toB64(blob)}}]}],generationConfig:{responseMimeType:'application/json'}};
+  let r,used;
+  for(const m of [...new Set([getModel(),'gemini-flash-latest','gemini-2.5-flash','gemini-2.0-flash','gemini-3-flash-preview'])]){
+    r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+m+':generateContent?key='+encodeURIComponent(getKey()),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r.status!==404){used=m;break}
+  }
+  if(!used||!r.ok)throw new Error(r?r.status:'rete');
+  localStorage.setItem('ls_model',used);
+  const j=await r.json();
+  return JSON.parse(j.candidates[0].content.parts[0].text.replace(/```json|```/g,'').trim());
+}
+async function analyze(blob,thumb){
+  let d=null;
+  $('busy').classList.remove('hid');
+  if(getKey()){try{$('busyTxt').textContent='Lettura con IA…';d=await geminiRead(blob)}catch(e){toast('IA non disponibile ('+e.message+'): uso la lettura locale','warn')}}
+  if(!d){
+    const url=URL.createObjectURL(blob);
+    $('busyTxt').textContent='Lettura codici a barre…';
+    const codes=await readCodes(url);
+    $('busyTxt').textContent='Lettura testo…';
+    const text=await readText(url);
+    d=parseLabel(text,codes);URL.revokeObjectURL(url);
+    if(!d.serial_number&&!d.model)toast('Nulla di leggibile: riprova più vicino e a fuoco, o compila a mano','warn');
+    else toast('Controlla i dati letti prima di confermare','warn');
+  }
+  $('busy').classList.add('hid');
+  if(navigator.vibrate)navigator.vibrate([40,60,40]);
+  openModal({model:d.model,serial:d.serial_number,brand:d.brand,pn:d.pn,imei:d.imei},thumb);
+}
+
+// ---------- Conferma / modifica ----------
+function openModal(d,thumb){
+  editId=null;
+  $('fModel').value=d.model||'';$('fSerial').value=d.serial||'';$('fBrand').value=d.brand||'';$('fPN').value=d.pn||'';$('fIMEI').value=d.imei||'';
+  const t=$('thumb');if(thumb){t.src=thumb;t.classList.remove('hid')}else t.classList.add('hid');
+  $('modal').classList.remove('hid');checkDup();
+}
+function editItem(id){const i=items.find(x=>x.id===id);if(!i)return;openModal({model:i.model,serial:i.serial,brand:i.brand,pn:i.pn,imei:i.imei},'');editId=id}
+function closeModal(){$('modal').classList.add('hid')}
+function checkDup(){
+  const s=$('fSerial').value.trim().toLowerCase(),w=$('dupWarn');
+  const f=s&&items.find(i=>i.id!==editId&&(i.serial||'').toLowerCase()===s);
+  if(f){w.innerHTML='Già in questo progetto: <b>'+esc(f.model)+'</b> ('+esc(f.brand||'N/D')+')';w.classList.remove('hid')}else w.classList.add('hid');
+}
+async function addItem(){
+  const v={model:$('fModel').value.trim(),serial:$('fSerial').value.trim(),brand:$('fBrand').value.trim(),pn:$('fPN').value.trim(),imei:$('fIMEI').value.trim()};
+  if(!v.model||!v.serial){toast('Modello e seriale sono obbligatori','warn');return}
+  const r=editId?await sb.from('items').update(v).eq('id',editId):await sb.from('items').insert({...v,project_id:proj.id});
+  if(r.error){toast(r.error.message,'warn');return}
+  const was=editId;closeModal();await loadItems();toast(was?'Modificato':'Aggiunto');
+}
+
+// ---------- Excel ----------
+async function importFile(e){
+  const f=e.target.files[0];if(!f)return;e.target.value='';
+  try{
+    const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
+    const pick=(r,keys)=>{for(const k of Object.keys(r)){const n=k.toLowerCase();if(keys.some(x=>n.includes(x)))return String(r[k]).trim()}return''};
+    const seen=new Set(items.map(i=>(i.serial||'').toLowerCase()));let skip=0;const add=[];
+    rows.forEach(r=>{
+      const serial=pick(r,['serial','s/n','seriale']),model=pick(r,['modello','model']);
+      if(!serial&&!model)return;
+      if(serial&&seen.has(serial.toLowerCase())){skip++;return}
+      seen.add(serial.toLowerCase());
+      add.push({project_id:proj.id,model,serial,brand:pick(r,['produttore','marca','brand']),pn:pick(r,['part number','p/n']),imei:pick(r,['imei'])});
+    });
+    for(let i=0;i<add.length;i+=500){const {error}=await sb.from('items').insert(add.slice(i,i+500));if(error){toast(error.message,'warn');return}}
+    await loadItems();toast(`Caricati ${add.length} elementi, ${skip} duplicati saltati`);
+  }catch(err){toast('File non leggibile','warn')}
+}
+function exportXlsx(){
+  if(!items.length){toast('Nessun elemento da esportare','warn');return}
+  const ws=XLSX.utils.json_to_sheet(items.map((i,n)=>({'N°':n+1,'Produttore / Marca':i.brand,'Modello':i.model,'Numero di Serie (S/N)':i.serial,'Part Number (P/N)':i.pn,'IMEI':i.imei,'Data':new Date(i.created_at).toLocaleString('it-IT')})));
+  ws['!cols']=[6,18,28,28,18,18,22].map(w=>({wch:w}));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Inventario');
+  XLSX.writeFile(wb,proj.name.replace(/[^\w-]+/g,'_')+'.xlsx');toast('File Excel scaricato');
+}
+init();
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+</script>
+</body>
+</html>
