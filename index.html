@@ -56,7 +56,7 @@ body{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset
   </header>
   <main class="max-w-6xl mx-auto p-4 space-y-4">
     <h2 class="text-2xl font-extrabold">I tuoi progetti</h2>
-    <div class="flex gap-2 max-w-md"><input id="pname" class="inp" placeholder="Nome nuovo progetto (es. Cantiere Rossi)" onkeydown="if(event.key==='Enter')newProj()"><button onclick="newProj()" class="px-4 rounded-xl bg-emerald-600 font-bold text-sm whitespace-nowrap">+ Crea</button></div>
+    <div class="flex gap-2 max-w-md"><input id="pname" class="inp" placeholder="Nome nuovo progetto (es. Cantiere Rossi)" onkeydown="if(event.key==='Enter')newProj()"><button id="btnCrea" onclick="newProj()" class="px-4 rounded-xl bg-emerald-600 font-bold text-sm whitespace-nowrap disabled:opacity-50">+ Crea</button></div>
     <div id="pgrid" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"></div>
   </main>
 </div>
@@ -183,10 +183,13 @@ async function loadProjects(){
     :'<p class="text-sm text-slate-500">Nessun progetto. Creane uno qui sopra per iniziare.</p>';
 }
 async function newProj(){
-  const name=$('pname').value.trim();if(!name)return;
+  const name=$('pname').value.trim();
+  if(!name){toast('Scrivi prima il nome del progetto','warn');$('pname').focus();return}
+  const b=$('btnCrea');b.disabled=true;
   const {error}=await sb.from('projects').insert({name});
-  if(error){toast(error.message,'warn');return}
-  $('pname').value='';loadProjects();
+  b.disabled=false;
+  if(error){toast('Non creato: '+error.message,'warn');return}
+  $('pname').value='';toast('Progetto creato');await loadProjects();
 }
 async function delProj(id){
   if(armed!==id){armed=id;$('dp'+id).textContent='Conferma?';setTimeout(()=>{if(armed===id){armed=null;const b=$('dp'+id);if(b)b.textContent='🗑️'}},3000);return}
